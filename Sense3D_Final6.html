@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Sense3D Draw — Team TECHNOLOGIA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+:root { --cyan:#00e5ff; --green:#00ff9d; --gold:#ffd600; --red:#ff1744; --dark:#020912; --panel:rgba(2,9,18,0.93); }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--dark);font-family:'Share Tech Mono',monospace;color:#c8e8ff;overflow:hidden;height:100dvh;width:100vw;touch-action:none;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:998;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,229,255,0.01) 3px,rgba(0,229,255,0.01) 4px);}
+
+/* ALL canvases perfectly fullscreen */
+#cam{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.18;z-index:0;}
+#three-canvas{position:fixed;top:0;left:0;z-index:1;display:block;}
+#draw-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:3;pointer-events:none;}
+#hand-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:4;pointer-events:none;transform:scaleX(-1);}
+
+.hdr{position:fixed;top:0;left:0;right:0;z-index:200;padding:8px 12px 5px;background:linear-gradient(180deg,rgba(2,9,18,0.97) 70%,transparent);display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:0.95rem;color:var(--cyan);text-shadow:0 0 16px var(--cyan);letter-spacing:3px;}
+.sub{font-size:0.42rem;color:rgba(0,229,255,0.45);letter-spacing:2px;margin-top:1px;}
+.audio-btn{background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.35);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:0.52rem;letter-spacing:2px;padding:6px 11px;cursor:pointer;border-radius:2px;}
+
+.mode-box{position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid rgba(0,229,255,0.2);border-top:2px solid var(--cyan);padding:5px 16px;z-index:200;text-align:center;backdrop-filter:blur(8px);border-radius:2px;min-width:200px;}
+.mode-lbl{font-size:0.42rem;color:rgba(0,229,255,0.45);letter-spacing:3px;}
+.mode-val{font-family:'Orbitron',sans-serif;font-size:0.72rem;color:var(--gold);letter-spacing:2px;margin-top:1px;}
+
+/* Math panel — only shown in 3D mode */
+.math-panel{position:fixed;top:130px;right:8px;z-index:200;background:var(--panel);border:1px solid rgba(0,255,157,0.18);border-right:3px solid var(--green);padding:8px 11px;backdrop-filter:blur(8px);min-width:138px;border-radius:2px;display:none;}
+.m-title{font-family:'Orbitron',sans-serif;font-size:0.4rem;color:var(--green);letter-spacing:3px;margin-bottom:6px;}
+.m-row{font-size:0.52rem;color:#5a8899;margin-bottom:4px;}
+.m-val{color:#fff;font-size:0.62rem;display:block;margin-top:1px;}
+
+.size-box{position:fixed;bottom:130px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid rgba(0,229,255,0.2);padding:8px 16px;z-index:200;text-align:center;backdrop-filter:blur(8px);border-radius:2px;min-width:220px;display:none;}
+.size-lbl{font-size:0.42rem;color:rgba(0,229,255,0.5);letter-spacing:2px;margin-bottom:6px;}
+#size-slider{width:100%;accent-color:var(--cyan);-webkit-appearance:none;height:3px;background:rgba(0,229,255,0.2);border-radius:2px;outline:none;}
+#size-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);cursor:pointer;}
+.size-val{font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--cyan);margin-top:4px;}
+
+.btn-bar{position:fixed;bottom:68px;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:200;padding:0 10px;}
+.act-btn{flex:1;max-width:90px;padding:10px 4px;background:var(--panel);border:1px solid rgba(0,229,255,0.18);color:#5a8899;font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:1px;cursor:pointer;border-radius:3px;text-align:center;transition:all 0.2s;}
+.act-btn .ico{font-size:1.2rem;display:block;margin-bottom:3px;}
+.act-btn.active{border-color:var(--red);color:var(--red);background:rgba(255,23,68,0.1);}
+.act-btn.done{border-color:var(--green);color:var(--green);background:rgba(0,255,157,0.1);}
+
+.hint{position:fixed;bottom:12px;left:0;right:0;text-align:center;font-size:0.42rem;color:rgba(0,229,255,0.3);letter-spacing:2px;z-index:200;}
+
+#detect-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--panel);border:2px solid var(--gold);padding:16px 24px;z-index:500;text-align:center;backdrop-filter:blur(12px);border-radius:4px;display:none;min-width:200px;box-shadow:0 0 30px rgba(255,214,0,0.3);}
+.dp-title{font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--gold);letter-spacing:3px;margin-bottom:8px;}
+.dp-shape{font-family:'Orbitron',sans-serif;font-size:1.4rem;color:#fff;margin-bottom:4px;}
+.dp-sub{font-size:0.55rem;color:rgba(255,255,255,0.5);letter-spacing:2px;}
+
+.spk{position:fixed;top:44px;right:10px;font-size:0.45rem;color:var(--green);letter-spacing:2px;opacity:0;transition:opacity 0.3s;z-index:300;}
+.spk.on{opacity:1;}
+
+#finger-dot{position:fixed;width:20px;height:20px;border-radius:50%;background:var(--red);box-shadow:0 0 14px var(--red),0 0 28px rgba(255,23,68,0.4);z-index:500;pointer-events:none;display:none;transform:translate(-50%,-50%);transition:left 0.05s,top 0.05s;}
+
+#loader{position:fixed;inset:0;background:var(--dark);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity 0.6s;}
+.l-logo{font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:900;color:var(--cyan);text-shadow:0 0 28px var(--cyan);letter-spacing:5px;margin-bottom:6px;}
+.l-sub{font-size:0.5rem;color:rgba(0,229,255,0.45);letter-spacing:3px;margin-bottom:24px;}
+.l-bar{width:200px;height:2px;background:rgba(0,229,255,0.12);border-radius:2px;overflow:hidden;}
+.l-fill{height:100%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:lf 2.5s ease forwards;}
+@keyframes lf{from{width:0}to{width:100%}}
+.l-status{font-size:0.46rem;color:rgba(0,229,255,0.4);letter-spacing:2px;margin-top:10px;}
+.l-tap{margin-top:18px;font-size:0.62rem;color:var(--cyan);letter-spacing:3px;cursor:pointer;padding:12px 24px;border:1px solid var(--cyan);border-radius:2px;background:rgba(0,229,255,0.08);display:none;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+
+.cor{position:fixed;width:12px;height:12px;z-index:400;pointer-events:none;}
+.c-tl{top:4px;left:4px;border-top:2px solid var(--cyan);border-left:2px solid var(--cyan);}
+.c-tr{top:4px;right:4px;border-top:2px solid var(--cyan);border-right:2px solid var(--cyan);}
+.c-bl{bottom:4px;left:4px;border-bottom:2px solid var(--cyan);border-left:2px solid var(--cyan);}
+.c-br{bottom:4px;right:4px;border-bottom:2px solid var(--cyan);border-right:2px solid var(--cyan);}
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="l-logo">SENSE3D</div>
+  <div class="l-sub">DRAW · DETECT · VISUALIZE</div>
+  <div class="l-bar"><div class="l-fill"></div></div>
+  <div class="l-status" id="lst">LOADING...</div>
+  <div class="l-tap" id="tap-btn" onclick="onTap()">▶ TAP TO START</div>
+</div>
+
+<div class="cor c-tl"></div><div class="cor c-tr"></div>
+<div class="cor c-bl"></div><div class="cor c-br"></div>
+
+<video id="cam" autoplay playsinline muted></video>
+<canvas id="three-canvas"></canvas>
+<canvas id="draw-canvas"></canvas>
+<canvas id="hand-canvas"></canvas>
+<div id="finger-dot"></div>
+
+<div class="hdr">
+  <div><div class="logo">SENSE3D DRAW</div><div class="sub">TECHNOLOGIA · FINGER → 3D</div></div>
+  <button class="audio-btn" onclick="speakInfo()">▶ AUDIO</button>
+</div>
+<div class="spk" id="spk">◉ SPEAKING...</div>
+
+<div class="mode-box">
+  <div class="mode-lbl">// MODE</div>
+  <div class="mode-val" id="mode-val">DRAW A SHAPE WITH FINGER</div>
+</div>
+
+<div class="math-panel" id="math-panel">
+  <div class="m-title">// LIVE MATH</div>
+  <div class="m-row">Shape<span class="m-val" id="m-shape">—</span></div>
+  <div class="m-row">Surface Area<span class="m-val" id="m-sa">—</span></div>
+  <div class="m-row">Volume<span class="m-val" id="m-vol">—</span></div>
+  <div class="m-row">Size<span class="m-val" id="m-size">1.0</span></div>
+</div>
+
+<div id="detect-popup">
+  <div class="dp-title">// SHAPE DETECTED</div>
+  <div class="dp-shape" id="dp-shape">—</div>
+  <div class="dp-sub" id="dp-sub">CONVERTING TO 3D...</div>
+</div>
+
+<div class="size-box" id="size-box">
+  <div class="size-lbl">// DRAG TO RESIZE</div>
+  <input type="range" id="size-slider" min="0.3" max="1.5" step="0.05" value="1.0" oninput="onResize(this.value)">
+  <div class="size-val" id="size-display">SIZE: 1.0</div>
+</div>
+
+<div class="btn-bar">
+  <button class="act-btn" id="btn-draw"   onclick="setDrawMode()"><span class="ico">✏️</span>DRAW</button>
+  <button class="act-btn" id="btn-clear"  onclick="clearAll()"><span class="ico">🗑️</span>CLEAR</button>
+  <button class="act-btn" id="btn-detect" onclick="detectShape()"><span class="ico">🔍</span>DETECT</button>
+  <button class="act-btn" id="btn-3d"     onclick="show3D()"><span class="ico">🧊</span>TO 3D</button>
+</div>
+<div class="hint">☝️ POINT = DRAW · ✊ FIST = STOP/ROTATE · ✌️ HIGH/LOW = ZOOM</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script>
+const PI = Math.PI;
+
+// ── Math ─────────────────────────────────────────
+const M = {
+  circleSA:  r   => 4*PI*r*r,
+  circleVol: r   => (4/3)*PI*r*r*r,
+  squareSA:  s   => 6*s*s,
+  squareVol: s   => s*s*s,
+  triSA:     (b,h)=> b*b+2*b*Math.sqrt((b/2)**2+h**2),
+  triVol:    (b,h)=> (1/3)*b*b*h,
+  rectSA:    (r,h)=> 2*PI*r*(r+h),
+  rectVol:   (r,h)=> PI*r*r*h,
+};
+
+const SHAPE_3D = {circle:'SPHERE',square:'CUBE',triangle:'PYRAMID',rectangle:'CYLINDER'};
+const SHAPE_CLR = {circle:0xff1744,square:0xff6d00,triangle:0x00c853,rectangle:0x0091ea};
+const SHAPE_EMO = {circle:'⭕→🔵',square:'⬜→⬛',triangle:'🔺→🔺',rectangle:'▬→🔷'};
+
+function calcMath(shape, s) {
+  const r=s*0.5;
+  switch(shape){
+    case 'circle':    return {sa:M.circleSA(r).toFixed(3)+' u²',vol:M.circleVol(r).toFixed(3)+' u³'};
+    case 'square':    return {sa:M.squareSA(s).toFixed(3)+' u²',vol:M.squareVol(s).toFixed(3)+' u³'};
+    case 'triangle':  return {sa:M.triSA(s,s).toFixed(3)+' u²', vol:M.triVol(s,s).toFixed(3)+' u³'};
+    case 'rectangle': return {sa:M.rectSA(r,s).toFixed(3)+' u²',vol:M.rectVol(r,s).toFixed(3)+' u³'};
+    default: return {sa:'—',vol:'—'};
+  }
+}
+
+// ── Three.js ─────────────────────────────────────
+const tc = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({canvas:tc, antialias:true, alpha:true});
+renderer.setClearColor(0x000000,0);
+renderer.shadowMap.enabled=true;
+
+const scene  = new THREE.Scene();
+
+// ✅ FIX 1: Camera at true center, no Y offset
+const cam3d = new THREE.PerspectiveCamera(60,1,0.1,100);
+cam3d.position.set(0, 0, 5);
+cam3d.lookAt(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0x223355,1.2));
+const kL=new THREE.PointLight(0xffffff,2.8,20);
+kL.position.set(3,4,4); kL.castShadow=true; scene.add(kL);
+scene.add(new THREE.DirectionalLight(0x0044ff,0.4)).position.set(-3,-2,-3);
+
+const grid=new THREE.GridHelper(14,28,0x001122,0x001122);
+grid.position.y = -3; scene.add(grid);
+
+let mesh3d=null, is3D=false;
+let rotX=0.15,rotY=0,tRX=0.15,tRY=0;
+let autoSpin=false;
+
+// ── Canvases ─────────────────────────────────────
+const drawCanvas=document.getElementById('draw-canvas');
+const dCtx=drawCanvas.getContext('2d');
+const handCanvas=document.getElementById('hand-canvas');
+const hCtx=handCanvas.getContext('2d');
+
+function resize(){
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  drawCanvas.width=W; drawCanvas.height=H;
+  handCanvas.width=W; handCanvas.height=H;
+
+  // Simplest approach: pixelRatio=1, canvas sized in CSS to 100vw/100vh
+  renderer.setPixelRatio(1);
+  renderer.setSize(W, H, false);
+
+  // Manually set canvas to fill screen via CSS
+  tc.style.width  = '100vw';
+  tc.style.height = '100vh';
+  tc.style.position = 'fixed';
+  tc.style.top = '0';
+  tc.style.left = '0';
+
+  cam3d.aspect = W / H;
+  cam3d.updateProjectionMatrix();
+  cam3d.position.set(0, 0, 5);
+  cam3d.lookAt(0, 0, 0);
+}
+window.addEventListener('resize',resize);
+window.addEventListener('load', resize);
+setTimeout(resize, 100);
+resize();
+
+// ── Drawing State ─────────────────────────────────
+let pts=[], drawing=false, detectedShape=null, currentSize=1.0;
+let drawCX=0, drawCY=0, drawSize=100;
+
+function setDrawMode(){
+  clearAll();
+  drawing=true;
+  document.getElementById('btn-draw').className='act-btn active';
+  document.getElementById('mode-val').textContent='✏️ DRAWING... MAKE FIST TO STOP';
+}
+
+// ✅ FIX 3: Smooth drawing with quadratic curves
+function redrawTrail(){
+  dCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  if(pts.length<2) return;
+  dCtx.save();
+  dCtx.shadowColor='#ff1744';
+  dCtx.shadowBlur=16;
+  dCtx.strokeStyle='#ff1744';
+  dCtx.lineWidth=5;
+  dCtx.lineCap='round';
+  dCtx.lineJoin='round';
+  dCtx.beginPath();
+  dCtx.moveTo(pts[0].x,pts[0].y);
+  // Smooth curve through all points
+  for(let i=1;i<pts.length-1;i++){
+    const mx=(pts[i].x+pts[i+1].x)/2;
+    const my=(pts[i].y+pts[i+1].y)/2;
+    dCtx.quadraticCurveTo(pts[i].x,pts[i].y,mx,my);
+  }
+  dCtx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);
+  dCtx.stroke();
+  dCtx.restore();
+  // Start dot
+  dCtx.beginPath();
+  dCtx.arc(pts[0].x,pts[0].y,7,0,PI*2);
+  dCtx.fillStyle='#00ff9d';
+  dCtx.fill();
+}
+
+function stopDrawing(){
+  drawing=false;
+  document.getElementById('btn-draw').className='act-btn';
+  document.getElementById('mode-val').textContent='DRAWING DONE — TAP DETECT 🔍';
+}
+
+function clearAll(){
+  pts=[]; drawing=false; detectedShape=null; is3D=false; autoSpin=false;
+  dCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  if(mesh3d){scene.remove(mesh3d);mesh3d=null;}
+  document.getElementById('math-panel').style.display='none';
+  document.getElementById('size-box').style.display='none';
+  document.getElementById('btn-draw').className='act-btn';
+  document.getElementById('btn-detect').className='act-btn';
+  document.getElementById('btn-3d').className='act-btn';
+  document.getElementById('mode-val').textContent='DRAW A SHAPE WITH FINGER';
+}
+
+// ── Shape Detection ───────────────────────────────
+function detectShape(){
+  if(pts.length<8){
+    document.getElementById('mode-val').textContent='DRAW MORE! TOO FEW POINTS';
+    return;
+  }
+
+  // Bounding box
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const minY=Math.min(...ys), maxY=Math.max(...ys);
+  const bW=maxX-minX, bH=maxY-minY;
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+
+  // Aspect ratio of bounding box
+  const aspect = bW / (bH||1);
+
+  // Is shape closed? (start point near end point)
+  const first=pts[0], last=pts[pts.length-1];
+  const closeDist=Math.hypot(last.x-first.x, last.y-first.y);
+  const diagonal=Math.hypot(bW,bH);
+  const isClosed = closeDist < diagonal*0.35;
+
+  // Count sharp corners
+  const corners = countCorners(pts);
+
+  // ── DETECTION RULES ─────────────────────────────
+  // Rule: 0 corners OR very round → CIRCLE → Sphere
+  // Rule: exactly 3 corners       → TRIANGLE → Pyramid
+  // Rule: 4 corners, equal sides  → SQUARE → Cube
+  // Rule: 4 corners, unequal      → RECTANGLE → Cylinder
+  // Rule: not closed, long shape  → RECTANGLE → Cylinder
+
+  let shape;
+  let reason='';
+
+  if(!isClosed){
+    // Open shape = line/rectangle = Cylinder
+    shape='rectangle';
+    reason=`open shape (aspect=${aspect.toFixed(1)})`;
+  } else if(corners<=1){
+    // Very smooth, no corners = Circle = Sphere
+    shape='circle';
+    reason=`${corners} corners, round`;
+  } else if(corners===2 || corners===3){
+    // 3 corners = Triangle = Pyramid
+    shape='triangle';
+    reason=`${corners} corners = triangle`;
+  } else if(corners>=4){
+    // 4+ corners — check if square or rectangle
+    if(aspect>0.75 && aspect<1.35){
+      // Width ≈ Height = Square = Cube
+      shape='square';
+      reason=`${corners} corners, aspect=${aspect.toFixed(2)} ≈ square`;
+    } else {
+      // Width ≠ Height = Rectangle = Cylinder
+      shape='rectangle';
+      reason=`${corners} corners, aspect=${aspect.toFixed(2)} = rectangle`;
+    }
+  } else {
+    shape='circle';
+    reason='default';
+  }
+
+  console.log(`Detected: ${shape} | corners=${corners} | aspect=${aspect.toFixed(2)} | closed=${isClosed} | reason=${reason}`);
+
+  detectedShape=shape;
+  drawCX=cx; drawCY=cy; drawSize=Math.max(bW,bH)*0.45;
+
+  draw2D(shape, cx, cy, drawSize);
+
+  document.getElementById('dp-shape').textContent=SHAPE_EMO[shape];
+  document.getElementById('dp-sub').textContent=
+    `${corners} CORNERS · ${shape.toUpperCase()} → ${SHAPE_3D[shape]}`;
+  const popup=document.getElementById('detect-popup');
+  popup.style.display='block';
+  setTimeout(()=>popup.style.display='none',2800);
+
+  document.getElementById('btn-detect').className='act-btn done';
+  document.getElementById('mode-val').textContent=
+    shape.toUpperCase()+' ('+corners+' corners) → TAP TO 3D 🧊';
+  speak(`${corners} corners detected. This is a ${shape}. Converting to ${SHAPE_3D[shape]}.`);
+}
+
+// ── Count Sharp Corners ───────────────────────────
+// Finds points where direction changes sharply
+function countCorners(pts){
+  if(pts.length<10) return 0;
+
+  // Smooth points first to reduce noise
+  const smoothed=[];
+  const sw=5; // smoothing window
+  for(let i=0;i<pts.length;i++){
+    let sx=0,sy=0,count=0;
+    for(let j=Math.max(0,i-sw);j<=Math.min(pts.length-1,i+sw);j++){
+      sx+=pts[j].x; sy+=pts[j].y; count++;
+    }
+    smoothed.push({x:sx/count,y:sy/count});
+  }
+
+  // Find corners by angle change
+  let corners=0;
+  const step=Math.max(1,Math.floor(smoothed.length/20));
+  const minDist=15; // min pixels between corners
+  let lastCornerIdx=-minDist*2;
+
+  for(let i=step;i<smoothed.length-step;i+=1){
+    const p=smoothed[Math.max(0,i-step)];
+    const q=smoothed[i];
+    const r=smoothed[Math.min(smoothed.length-1,i+step)];
+
+    const a1=Math.atan2(q.y-p.y,q.x-p.x);
+    const a2=Math.atan2(r.y-q.y,r.x-q.x);
+    let diff=Math.abs(a2-a1);
+    if(diff>PI) diff=2*PI-diff;
+
+    // Sharp corner = angle change > 45 degrees
+    if(diff>0.78 && (i-lastCornerIdx)>step*3){
+      corners++;
+      lastCornerIdx=i;
+    }
+  }
+  return corners;
+}
+
+// ── Draw 2D shape at center ───────────────────────
+function draw2D(shape,cx,cy,r){
+  dCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  const hex=SHAPE_CLR[shape];
+  const color='#'+hex.toString(16).padStart(6,'0');
+  dCtx.save();
+  dCtx.shadowColor=color; dCtx.shadowBlur=24;
+  dCtx.strokeStyle=color; dCtx.lineWidth=3;
+  dCtx.fillStyle=color+'44';
+  dCtx.beginPath();
+  switch(shape){
+    case 'circle':    dCtx.arc(cx,cy,r,0,PI*2); break;
+    case 'square':    dCtx.rect(cx-r,cy-r,r*2,r*2); break;
+    case 'triangle':  dCtx.moveTo(cx,cy-r); dCtx.lineTo(cx+r,cy+r); dCtx.lineTo(cx-r,cy+r); dCtx.closePath(); break;
+    case 'rectangle': dCtx.rect(cx-r*1.4,cy-r*0.6,r*2.8,r*1.2); break;
+  }
+  dCtx.fill(); dCtx.stroke(); dCtx.restore();
+  dCtx.fillStyle='#fff';
+  dCtx.font='bold 15px Share Tech Mono';
+  dCtx.textAlign='center';
+  dCtx.fillText('2D: '+shape.toUpperCase(),cx,cy+r+26);
+  dCtx.fillText('→ '+SHAPE_3D[shape],cx,cy+r+44);
+}
+
+// ── Build 3D shape at EXACT center (0,0,0) ────────
+function show3D(){
+  if(!detectedShape){ document.getElementById('mode-val').textContent='DRAW & DETECT FIRST!'; return; }
+  if(mesh3d){scene.remove(mesh3d);mesh3d=null;}
+  dCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+
+  const s=currentSize, r=s*0.5;
+  const color=SHAPE_CLR[detectedShape];
+  const mat=new THREE.MeshPhongMaterial({color,specular:0xaaddff,shininess:90,emissive:new THREE.Color(color).multiplyScalar(0.08)});
+
+  let geo;
+  switch(detectedShape){
+    case 'circle':    geo=new THREE.SphereGeometry(r,36,18); break;
+    case 'square':    geo=new THREE.BoxGeometry(s,s,s); break;
+    case 'triangle':  geo=new THREE.ConeGeometry(r*1.2,s*1.2,4); break;
+    case 'rectangle': geo=new THREE.CylinderGeometry(r,r,s,36); break;
+  }
+
+  mesh3d=new THREE.Group();
+  const mainMesh=new THREE.Mesh(geo,mat); mainMesh.castShadow=true;
+  const wireMesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0x00e5ff,wireframe:true,transparent:true,opacity:0.08}));
+  const ringGeo=new THREE.RingGeometry(r*0.95,r*1.1,64);
+  const ring=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,transparent:true,opacity:0.45}));
+  ring.rotation.x=-PI/2; ring.position.y = -r * 1.05;
+
+  mesh3d.add(mainMesh,wireMesh,ring);
+
+  mesh3d.position.set(0, 0, 0);
+  scene.add(mesh3d);
+  cam3d.position.set(0, 0, 5);
+  cam3d.lookAt(0, 0, 0);
+  tRX=0.15; tRY=0; rotX=0.15; rotY=0;
+  is3D=true; autoSpin=true;
+
+  // Show math and size panels
+  document.getElementById('math-panel').style.display='block';
+  document.getElementById('size-box').style.display='block';
+  document.getElementById('btn-3d').className='act-btn done';
+  document.getElementById('mode-val').textContent=SHAPE_3D[detectedShape]+' — DRAG TO ROTATE';
+  updateMath();
+  speakInfo();
+}
+
+function updateMath(){
+  if(!detectedShape) return;
+  const m=calcMath(detectedShape,currentSize);
+  document.getElementById('m-shape').textContent=SHAPE_3D[detectedShape];
+  document.getElementById('m-sa').textContent=m.sa;
+  document.getElementById('m-vol').textContent=m.vol;
+  document.getElementById('m-size').textContent=currentSize.toFixed(2)+' u';
+}
+
+function onResize(val){
+  currentSize=parseFloat(val);
+  document.getElementById('size-display').textContent='SIZE: '+currentSize.toFixed(2);
+  updateMath();
+  if(is3D) show3D();
+}
+
+// ── TTS ──────────────────────────────────────────
+function speak(text){
+  if(!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  document.getElementById('spk').classList.add('on');
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.88; u.onend=()=>document.getElementById('spk').classList.remove('on');
+  window.speechSynthesis.speak(u);
+}
+function speakInfo(){
+  if(!detectedShape) return;
+  const m=calcMath(detectedShape,currentSize);
+  speak(`This is a ${SHAPE_3D[detectedShape]}. Surface Area ${m.sa.replace('u²','square units')}. Volume ${m.vol.replace('u³','cubic units')}. Sense3D by Team Technologia.`);
+}
+
+// ── Hand Drawing ──────────────────────────────────
+const videoEl=document.getElementById('cam');
+const fingerDot=document.getElementById('finger-dot');
+const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+function drawHand(lm){
+  const W=handCanvas.width,H=handCanvas.height;
+  hCtx.clearRect(0,0,W,H);
+  hCtx.strokeStyle='rgba(0,229,255,0.6)'; hCtx.lineWidth=2.5;
+  CONN.forEach(([a,b])=>{
+    hCtx.beginPath(); hCtx.moveTo(lm[a].x*W,lm[a].y*H); hCtx.lineTo(lm[b].x*W,lm[b].y*H); hCtx.stroke();
+  });
+  lm.forEach((p,i)=>{
+    hCtx.beginPath(); hCtx.arc(p.x*W,p.y*H,i===0?7:4,0,PI*2);
+    hCtx.fillStyle=i===0?'rgba(0,229,255,1)':'rgba(0,255,157,0.9)'; hCtx.fill();
+  });
+}
+
+function getGesture(lm){
+  const i=lm[8].y<lm[6].y, m=lm[12].y<lm[10].y, r=lm[16].y<lm[14].y, p=lm[20].y<lm[18].y;
+  const c=[i,m,r,p].filter(Boolean).length;
+  if(c===0)        return 'FIST';
+  if(i&&!m&&!r&&!p) return 'POINT';
+  if(i&&m&&!r&&!p)  return 'PEACE';
+  if(c>=3)          return 'OPEN';
+  return 'HAND';
+}
+
+let lastGest='', gestCool=0, fistLastX=null;
+
+function onHandResults(res){
+  hCtx.clearRect(0,0,handCanvas.width,handCanvas.height);
+  if(!res.multiHandLandmarks?.length){
+    fingerDot.style.display='none';
+    if(drawing) stopDrawing();
+    if(!is3D) autoSpin=true;
+    return;
+  }
+  const lm=res.multiHandLandmarks[0];
+  const gesture=getGesture(lm);
+  drawHand(lm);
+
+  // ✅ FIX: finger tip position mirrored correctly
+  const fx=(1-lm[8].x)*drawCanvas.width;
+  const fy=lm[8].y*drawCanvas.height;
+  fingerDot.style.display='block';
+  fingerDot.style.left=fx+'px';
+  fingerDot.style.top=fy+'px';
+
+  if(gestCool>0){gestCool--;return;}
+
+  switch(gesture){
+    case 'POINT':
+      // ✅ FIX: Smooth point collection — only add if moved enough
+      if(!drawing){ drawing=true; pts=[]; document.getElementById('btn-draw').className='act-btn active'; }
+      const last=pts[pts.length-1];
+      if(!last||Math.hypot(fx-last.x,fy-last.y)>4){ // min distance threshold for smoothness
+        pts.push({x:fx,y:fy});
+        redrawTrail();
+      }
+      document.getElementById('mode-val').textContent='✏️ DRAWING...';
+      break;
+
+    case 'FIST':
+      if(drawing){stopDrawing();gestCool=15;break;}
+      if(is3D&&fistLastX!==null){
+        autoSpin=false;
+        tRY-=(lm[9].x-fistLastX)*8;
+        if(lm[9].y<0.3) tRX-=0.04;
+        if(lm[9].y>0.7) tRX+=0.04;
+      }
+      fistLastX=lm[9].x;
+      break;
+
+    case 'PEACE':
+      fistLastX=null;
+      const avgY=(lm[8].y+lm[12].y)/2;
+      if(avgY<0.35)      cam3d.position.z=Math.max(1.5,cam3d.position.z-0.1);
+      else if(avgY>0.65) cam3d.position.z=Math.min(8,cam3d.position.z+0.1);
+      document.getElementById('mode-val').textContent=avgY<0.35?'✌️↑ ZOOM IN':'✌️↓ ZOOM OUT';
+      break;
+
+    case 'OPEN':
+      fistLastX=null;
+      if(lastGest!=='OPEN'){
+        autoSpin=true; tRX=0.15; tRY=0;
+        cam3d.position.set(0,0,5);
+        cam3d.lookAt(0,0,0);
+        if(is3D){speakInfo();gestCool=25;}
+      }
+      break;
+  }
+  lastGest=gesture;
+}
+
+// ── Touch fallback ────────────────────────────────
+let tD=false,tX=0,tY=0,tP=0;
+tc.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){tD=true;autoSpin=false;tX=e.touches[0].clientX;tY=e.touches[0].clientY;}
+  if(e.touches.length===2){tP=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+},{passive:true});
+tc.addEventListener('touchmove',e=>{
+  if(e.touches.length===1&&tD&&is3D){tRY+=(e.touches[0].clientX-tX)*0.014;tRX+=(e.touches[0].clientY-tY)*0.014;tX=e.touches[0].clientX;tY=e.touches[0].clientY;}
+  if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam3d.position.z-=(d-tP)*0.015;cam3d.position.z=Math.max(1.5,Math.min(8,cam3d.position.z));tP=d;updateMath();}
+},{passive:true});
+tc.addEventListener('touchend',()=>tD=false);
+
+// ── Camera ────────────────────────────────────────
+function startCamera(){
+  document.getElementById('lst').textContent='STARTING CAMERA...';
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480}})
+    .then(s=>{videoEl.srcObject=s;return videoEl.play();})
+    .then(()=>initMP())
+    .catch(()=>{document.getElementById('lst').textContent='NO CAMERA — USE TOUCH';hideLoader();});
+}
+
+function initMP(){
+  document.getElementById('lst').textContent='LOADING AI...';
+  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.7,minTrackingConfidence:0.6});
+  hands.onResults(onHandResults);
+  const mc=new Camera(videoEl,{onFrame:async()=>await hands.send({image:videoEl}),width:640,height:480});
+  mc.start().then(()=>{document.getElementById('lst').textContent='READY!';setTimeout(hideLoader,700);});
+}
+
+function hideLoader(){const l=document.getElementById('loader');l.style.opacity='0';setTimeout(()=>l.style.display='none',500);}
+function onTap(){document.getElementById('tap-btn').style.display='none';startCamera();}
+
+// ── Animate ──────────────────────────────────────
+let time=0;
+function animate(){
+  requestAnimationFrame(animate); time+=0.016;
+
+  if(autoSpin&&is3D) tRY+=0.006;
+  rotX+=(tRX-rotX)*0.07;
+  rotY+=(tRY-rotY)*0.07;
+
+  if(mesh3d){
+    mesh3d.rotation.x=rotX;
+    mesh3d.rotation.y=rotY;
+    mesh3d.children.forEach(c=>{
+      if(c.geometry?.type==='RingGeometry') c.material.opacity=0.3+0.22*Math.sin(time*2.5);
+    });
+  }
+
+  cam3d.lookAt(0, 0, 0);
+
+  kL.position.x=Math.sin(time*0.4)*4;
+  kL.position.z=Math.cos(time*0.4)*4;
+  renderer.render(scene,cam3d);
+}
+
+resize(); animate();
+setTimeout(()=>{document.getElementById('lst').textContent='TAP TO START';document.getElementById('tap-btn').style.display='block';},2600);
+setTimeout(()=>speak('Welcome to Sense3D Draw. Point your finger to draw. Then tap Detect and To 3D!'),3100);
+</script>
+</body>
+</html>
